@@ -72,5 +72,5 @@ tool/make_icon.py           regenerates the app icon for all platforms
 .github/workflows/build.yml CI builds (.dmg, Windows, Linux)
 ```
 
-The Inter font is bundled (`assets/fonts`, SIL Open Font License) so the app
+The Nunito font is bundled (`assets/fonts`, SIL Open Font License) so the app
 looks the same on every platform.

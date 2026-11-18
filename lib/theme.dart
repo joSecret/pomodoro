@@ -32,7 +32,7 @@ ThemeData buildTheme() {
   final base = ThemeData(
     brightness: Brightness.dark,
     useMaterial3: true,
-    fontFamily: 'Inter',
+    fontFamily: 'Nunito',
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.accent,
       brightness: Brightness.dark,
@@ -52,7 +52,8 @@ ThemeData buildTheme() {
         color: AppColors.surfaceHigh,
         borderRadius: BorderRadius.all(Radius.circular(6)),
       ),
-      textStyle: TextStyle(color: AppColors.textPrimary, fontSize: 12),
+      textStyle: TextStyle(
+          fontFamily: 'Nunito', color: AppColors.textPrimary, fontSize: 12),
     ),
   );
 }

@@ -70,7 +70,8 @@ class ActivityHeatmap extends StatelessWidget {
       bool today = false,
       Widget? label}) {
     final box = Container(
-      alignment: Alignment.center,
+      alignment: Alignment.bottomRight,
+      padding: const EdgeInsets.fromLTRB(4, 4, 9, 7),
       child: label,
       decoration: BoxDecoration(
         color: AppColors.heat[level],
@@ -151,7 +152,7 @@ class ActivityHeatmap extends StatelessWidget {
                       radius: 14,
                       today: d == today,
                       day: d,
-                      label: _valueText(byDay[d] ?? 0, size / 6.2)),
+                      label: _valueText(byDay[d] ?? 0, size / 9)),
                 ),
                 const SizedBox(height: 10),
                 Text(_wd[d.weekday - 1], style: _labelStyle),
@@ -218,11 +219,12 @@ class ActivityHeatmap extends StatelessWidget {
                         if ((byDay[d] ?? 0) > 0)
                           Positioned(
                             left: 2,
-                            right: 2,
+                            right: 6,
                             bottom: 5,
                             child: IgnorePointer(
-                              child: Center(
-                                child: _valueText(byDay[d]!, 11, compact: true),
+                              child: Align(
+                                alignment: Alignment.bottomRight,
+                                child: _valueText(byDay[d]!, 10),
                               ),
                             ),
                           ),
@@ -328,7 +330,8 @@ extension on ActivityHeatmap {
     ];
     final rows = details(d);
     return TextSpan(
-      style: const TextStyle(fontSize: 13, height: 1.55, color: AppColors.textPrimary),
+      style: const TextStyle(
+          fontFamily: 'Nunito', fontSize: 13, height: 1.55, color: AppColors.textPrimary),
       children: [
         TextSpan(
           text: '${full[d.weekday - 1]}, ${d.day} ${_months[d.month - 1]} ${d.year}',
@@ -349,19 +352,21 @@ extension on ActivityHeatmap {
   }
 
   Widget _valueText(int v, double size, {bool compact = false}) {
-    final text = v <= 0 ? '–' : shortUnit(v);
+    if (v <= 0) return const SizedBox.shrink();
+    final text = shortUnit(v);
     return FittedBox(
       fit: BoxFit.scaleDown,
+      alignment: Alignment.bottomRight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.zero,
         child: Text(
           compact ? text.replaceAll(' ', '') : text,
           maxLines: 1,
           style: TextStyle(
-            fontSize: size.clamp(10, 17),
+            fontSize: size.clamp(10, 13),
             fontWeight: FontWeight.w600,
             fontFeatures: tabularFigures,
-            color: v <= 0 ? AppColors.textMuted : Colors.white,
+            color: Colors.white.withValues(alpha: 0.85),
           ),
         ),
       ),

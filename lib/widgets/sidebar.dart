@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:window_manager/window_manager.dart';
+
 import '../theme.dart';
 
 class NavItem {
@@ -40,13 +42,15 @@ class Sidebar extends StatelessWidget {
       onPressed: onToggle,
       icon: const Icon(Icons.view_sidebar_outlined),
       color: AppColors.textSecondary,
-      iconSize: 22,
+      iconSize: 21,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
     );
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: collapsed ? 84 : 250,
-      margin: const EdgeInsets.all(10),
+      margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
@@ -60,17 +64,22 @@ class Sidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Header row, vertically aligned with the macOS window buttons.
+          // On macOS the empty part of it drags the window.
           SizedBox(
-            height: 52,
-            child: Row(children: [
+            height: 38,
+            child: _maybeDrag(Row(children: [
               if (previewChrome) const _MockTrafficLights(),
               const Spacer(),
               if (!collapsed) toggle,
               if (!collapsed) const SizedBox(width: 6),
-            ]),
+            ])),
           ),
-          if (collapsed) Center(child: toggle),
-          const SizedBox(height: 16),
+          if (collapsed) Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Center(child: toggle),
+          ),
+          const SizedBox(height: 22),
           for (var i = 0; i < items.length; i++)
             _NavTile(
               item: items[i],
@@ -83,6 +92,9 @@ class Sidebar extends StatelessWidget {
     );
   }
 }
+
+Widget _maybeDrag(Widget child) =>
+    reserveTrafficLights && !kIsWeb ? DragToMoveArea(child: child) : child;
 
 class _NavTile extends StatelessWidget {
   const _NavTile({
@@ -155,7 +167,7 @@ class _MockTrafficLights extends StatelessWidget {
           decoration: BoxDecoration(color: c, shape: BoxShape.circle),
         );
     return Padding(
-      padding: const EdgeInsets.only(left: 12),
+      padding: const EdgeInsets.only(left: 14),
       child: Row(children: [
         dot(const Color(0xFFFF5F57)),
         dot(const Color(0xFFFEBC2E)),

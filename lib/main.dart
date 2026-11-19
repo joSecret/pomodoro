@@ -26,21 +26,18 @@ Future<void> main() async {
   runApp(FocusFlowApp(state: state));
 }
 
-/// Sizes the window and, on macOS, hides the title bar so the native window
-/// buttons sit over the sidebar. Any failure here must never keep the window
+/// Sizes and centers the window. Any failure here must never keep the window
 /// from showing, so errors are logged and the window is shown anyway.
 Future<void> _setupWindow() async {
   try {
     await windowManager.ensureInitialized();
-    final mac = defaultTargetPlatform == TargetPlatform.macOS;
+    // The macOS title bar is configured natively in MainFlutterWindow.swift.
     await windowManager.waitUntilReadyToShow(
-      WindowOptions(
-        size: const Size(1100, 780),
-        minimumSize: const Size(760, 640),
+      const WindowOptions(
+        size: Size(1100, 780),
+        minimumSize: Size(760, 640),
         center: true,
         title: 'Focus Flow',
-        titleBarStyle: mac ? TitleBarStyle.hidden : null,
-        windowButtonVisibility: mac ? true : null,
       ),
     );
   } catch (e, st) {
@@ -100,16 +97,6 @@ class _HomeShellState extends State<HomeShell> {
         ),
         child: Stack(
           children: [
-            // Lets the user drag the window by the empty top strip on
-            // platforms where the title bar is hidden.
-            if (!kIsWeb)
-              const Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                height: 32,
-                child: DragToMoveArea(child: SizedBox.expand()),
-              ),
             ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Row(
@@ -123,7 +110,8 @@ class _HomeShellState extends State<HomeShell> {
                     onToggle: () => setState(() => _collapsed = !_collapsed),
                   ),
                   Expanded(
-                    child: Center(
+                    child: Stack(children: [
+                      Positioned.fill(child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1000),
                         child: switch (_tab) {
@@ -133,7 +121,18 @@ class _HomeShellState extends State<HomeShell> {
                           _ => TaskStatsScreen(state: widget.state),
                         },
                       ),
-                    ),
+                    )),
+                      // Empty strip at the top: drag here to move the window
+                      // (the macOS title bar is hidden behind the content).
+                      if (reserveTrafficLights && !kIsWeb)
+                        const Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          height: 22,
+                          child: DragToMoveArea(child: SizedBox.expand()),
+                        ),
+                    ]),
                   ),
                 ],
               ),

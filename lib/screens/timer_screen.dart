@@ -29,7 +29,7 @@ class TimerScreen extends StatelessWidget {
                   values: TimerMode.values,
                   selected: state.mode,
                   label: (m) => m.label,
-                  onChanged: state.setMode,
+                  onChanged: (m) => _switchMode(context, m),
                 ),
                 const SizedBox(height: 28),
                 SizedBox.square(
@@ -53,6 +53,136 @@ class TimerScreen extends StatelessWidget {
         ),
       );
     });
+  }
+
+  Future<void> _switchMode(BuildContext context, TimerMode m) async {
+    if (m == state.mode) return;
+    if (state.running) {
+      final secs = (state.remaining.inMilliseconds / 1000).ceil();
+      final left = '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text('Switch to ${m.label}?'),
+          content: Text(
+              'Your ${state.mode.label} timer is running ($left left). It will be '
+              'paused and kept, so you can come back and resume it.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Keep ${state.mode.label.toLowerCase()}')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Switch')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    state.setMode(m);
+  }
+}
+
+/// Asks what the user is working on before a fresh Work session when no task
+/// is pinned. Returns false if the user cancelled.
+Future<bool> askFocusTask(BuildContext context, AppState state) async {
+  final result = await showDialog<_FocusChoice>(
+    context: context,
+    builder: (_) => _FocusTaskDialog(state: state),
+  );
+  if (result == null) return false;
+  if (result.task != null) state.focusOn(result.task!);
+  if (result.newTitle != null) state.addTask(result.newTitle!, pinned: true);
+  return true;
+}
+
+class _FocusChoice {
+  const _FocusChoice({this.task, this.newTitle});
+  final TaskItem? task;
+  final String? newTitle;
+}
+
+class _FocusTaskDialog extends StatefulWidget {
+  const _FocusTaskDialog({required this.state});
+  final AppState state;
+
+  @override
+  State<_FocusTaskDialog> createState() => _FocusTaskDialogState();
+}
+
+class _FocusTaskDialogState extends State<_FocusTaskDialog> {
+  final _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _start() {
+    final text = _c.text.trim();
+    Navigator.pop(
+        context, text.isEmpty ? const _FocusChoice() : _FocusChoice(newTitle: text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final open = widget.state.openTasks.where((t) => !t.isDefault).toList();
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: const Text('What are you working on?'),
+      content: SizedBox(
+        width: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _c,
+              autofocus: true,
+              onSubmitted: (_) => _start(),
+              decoration: const InputDecoration(
+                hintText: 'Type a new task',
+                prefixIcon: Icon(Icons.edit_outlined, size: 20),
+              ),
+            ),
+            if (open.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const Text('Or pick one of your tasks',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              const SizedBox(height: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final t in open)
+                      ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        leading: const Icon(Icons.radio_button_unchecked,
+                            size: 18, color: AppColors.textMuted),
+                        title: Text(t.title, style: const TextStyle(fontSize: 15)),
+                        onTap: () => Navigator.pop(context, _FocusChoice(task: t)),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, const _FocusChoice()),
+          child: const Text('Start without a task'),
+        ),
+        FilledButton(onPressed: _start, child: const Text('Start')),
+      ],
+    );
   }
 }
 
@@ -250,7 +380,7 @@ class _Controls extends StatelessWidget {
               textStyle:
                   const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
-            onPressed: state.running ? state.pause : state.start,
+            onPressed: state.running ? state.pause : () => _start(context),
             child: Text(label),
           ),
         ),
@@ -263,6 +393,15 @@ class _Controls extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _start(BuildContext context) async {
+  // Ask only before a fresh Work session with nothing pinned.
+  final s = (context.findAncestorWidgetOfExactType<TimerScreen>())!.state;
+  if (s.mode == TimerMode.work && s.isFresh && s.pinnedTasks.isEmpty) {
+    if (!await askFocusTask(context, s)) return;
+  }
+  s.start();
 }
 
 class _RoundIcon extends StatelessWidget {

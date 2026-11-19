@@ -46,11 +46,26 @@ class AppState extends ChangeNotifier {
   double get progress =>
       1 - remaining.inMilliseconds / max(1, total.inMilliseconds);
 
+  /// Time left on modes the user switched away from, so coming back to a
+  /// tab resumes where it was instead of starting over.
+  final Map<TimerMode, Duration> _saved = {};
+
+  Duration remainingFor(TimerMode m) =>
+      m == mode ? remaining : (_saved[m] ?? Duration(minutes: minutesFor[m]!));
+
   void setMode(TimerMode m) {
-    if (m == mode && isFresh) return;
-    _stopTicker();
+    if (m == mode) return;
+    if (running) {
+      _tick();
+      _stopTicker();
+    }
+    if (remaining != total) {
+      _saved[mode] = remaining;
+    } else {
+      _saved.remove(mode);
+    }
     mode = m;
-    remaining = total;
+    remaining = _saved.remove(m) ?? total;
     notifyListeners();
   }
 
@@ -71,6 +86,7 @@ class AppState extends ChangeNotifier {
 
   void reset() {
     _stopTicker();
+    _saved.remove(mode);
     remaining = total;
     notifyListeners();
   }
@@ -105,10 +121,14 @@ class AppState extends ChangeNotifier {
   }
 
   void _finishPhase({required bool countSession}) {
+    _saved.remove(mode);
     if (mode == TimerMode.work) {
       if (countSession) {
+        final focus = pinnedTasks;
         sessions.add(FocusSession(
-            endedAt: DateTime.now(), minutes: minutesFor[TimerMode.work]!));
+            endedAt: DateTime.now(),
+            minutes: minutesFor[TimerMode.work]!,
+            taskTitle: focus.isEmpty ? null : focus.first.title));
         _saveSessions();
       }
       completedInCycle = min(sessionsPerCycle, completedInCycle + 1);
@@ -119,6 +139,7 @@ class AppState extends ChangeNotifier {
       if (mode == TimerMode.longBreak) completedInCycle = 0;
       mode = TimerMode.work;
     }
+    _saved.remove(mode);
     _prefs.setInt(_kCycle, completedInCycle);
     remaining = total;
     notifyListeners();
@@ -133,16 +154,23 @@ class AppState extends ChangeNotifier {
   List<TaskItem> get pinnedTasks =>
       tasks.where((t) => t.pinned && !t.isDone).toList();
 
-  void addTask(String title) {
+  TaskItem? addTask(String title, {bool pinned = false}) {
     final t = title.trim();
-    if (t.isEmpty) return;
-    tasks.insert(
-        0,
-        TaskItem(
-          id: '${DateTime.now().microsecondsSinceEpoch}',
-          title: t,
-          createdAt: DateTime.now(),
-        ));
+    if (t.isEmpty) return null;
+    final item = TaskItem(
+      id: '${DateTime.now().microsecondsSinceEpoch}',
+      title: t,
+      createdAt: DateTime.now(),
+      pinned: pinned,
+    );
+    tasks.insert(0, item);
+    _saveTasks();
+    return item;
+  }
+
+  /// Makes [t] the task shown under the timer.
+  void focusOn(TaskItem t) {
+    t.pinned = true;
     _saveTasks();
   }
 

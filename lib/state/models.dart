@@ -58,17 +58,24 @@ class TaskItem {
 
 /// One finished work (focus) session.
 class FocusSession {
-  FocusSession({required this.endedAt, required this.minutes});
+  FocusSession({required this.endedAt, required this.minutes, this.taskTitle});
 
   final DateTime endedAt;
   final int minutes;
 
-  Map<String, dynamic> toJson() =>
-      {'endedAt': endedAt.toIso8601String(), 'minutes': minutes};
+  /// The task that was pinned while this session ran, if any.
+  final String? taskTitle;
+
+  Map<String, dynamic> toJson() => {
+        'endedAt': endedAt.toIso8601String(),
+        'minutes': minutes,
+        if (taskTitle != null) 'taskTitle': taskTitle,
+      };
 
   factory FocusSession.fromJson(Map<String, dynamic> j) => FocusSession(
         endedAt: DateTime.parse(j['endedAt'] as String),
         minutes: j['minutes'] as int,
+        taskTitle: j['taskTitle'] as String?,
       );
 }
 

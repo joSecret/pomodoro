@@ -17,37 +17,40 @@ const _startTab = int.fromEnvironment('START_TAB');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb) {
-    await windowManager.ensureInitialized();
-    const options = WindowOptions(
-      size: Size(1100, 780),
-      minimumSize: Size(760, 640),
-      center: true,
-      title: 'Focus Flow',
-      backgroundColor: Color(0xFF1C1A3A),
-      // On macOS the title bar is hidden but the native window buttons stay
-      // visible over the sidebar. Windows and Linux keep their normal frame.
-      titleBarStyle: TitleBarStyle.hidden,
-      windowButtonVisibility: true,
-    );
-    final mac = defaultTargetPlatform == TargetPlatform.macOS;
-    await windowManager.waitUntilReadyToShow(
-        mac ? options : const WindowOptions(
-          size: Size(1100, 780),
-          minimumSize: Size(760, 640),
-          center: true,
-          title: 'Focus Flow',
-        ), () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  }
+  if (!kIsWeb) await _setupWindow();
 
   final prefs = await SharedPreferences.getInstance();
   if (_demo) await prefs.clear();
   final state = AppState(prefs);
   if (_demo) state.seedDemo();
   runApp(FocusFlowApp(state: state));
+}
+
+/// Sizes the window and, on macOS, hides the title bar so the native window
+/// buttons sit over the sidebar. Any failure here must never keep the window
+/// from showing, so errors are logged and the window is shown anyway.
+Future<void> _setupWindow() async {
+  try {
+    await windowManager.ensureInitialized();
+    final mac = defaultTargetPlatform == TargetPlatform.macOS;
+    await windowManager.waitUntilReadyToShow(
+      WindowOptions(
+        size: const Size(1100, 780),
+        minimumSize: const Size(760, 640),
+        center: true,
+        title: 'Focus Flow',
+        titleBarStyle: mac ? TitleBarStyle.hidden : null,
+        windowButtonVisibility: mac ? true : null,
+      ),
+    );
+  } catch (e, st) {
+    debugPrint('Window setup failed: $e\n$st');
+  } finally {
+    try {
+      await windowManager.show();
+      await windowManager.focus();
+    } catch (_) {}
+  }
 }
 
 class FocusFlowApp extends StatelessWidget {

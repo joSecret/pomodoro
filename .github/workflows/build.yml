@@ -33,6 +33,14 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build macos --release
+      - name: Ad-hoc sign the app
+        # Without an Apple Developer ID the app can only be ad-hoc signed.
+        # Re-signing the whole bundle keeps the signature consistent, so
+        # macOS does not report the app as damaged after download.
+        run: |
+          APP="build/macos/Build/Products/Release/${APP_NAME}.app"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
       - name: Smoke test (launch the app and take a screenshot)
         run: |
           APP="build/macos/Build/Products/Release/${APP_NAME}.app"
@@ -60,7 +68,7 @@ jobs:
           APP="build/macos/Build/Products/Release/${APP_NAME}.app"
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
           mkdir -p dist/stage
-          cp -R "$APP" dist/stage/
+          ditto "$APP" "dist/stage/${APP_NAME}.app"
           ln -s /Applications dist/stage/Applications
           hdiutil create -volname "${APP_NAME}" -srcfolder dist/stage \
             -ov -format UDZO "dist/FocusFlow-${VERSION}.dmg"

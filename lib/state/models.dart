@@ -14,6 +14,8 @@ class TaskItem {
     required this.title,
     required this.createdAt,
     this.pinned = false,
+    this.points = 1,
+    this.spent = 0,
     this.completedAt,
     this.isDefault = false,
     this.deleteAllDefaults = false,
@@ -28,6 +30,14 @@ class TaskItem {
   /// Onboarding tasks shipped with the app. They do not count in stats.
   final bool isDefault;
 
+  /// Estimated size in pomodoros (1..maxPoints).
+  int points;
+
+  /// Work sessions finished while this task was pinned.
+  int spent;
+
+  static const maxPoints = 8;
+
   /// Swiping this onboarding task left removes every onboarding task.
   final bool deleteAllDefaults;
 
@@ -37,6 +47,8 @@ class TaskItem {
         'id': id,
         'title': title,
         'pinned': pinned,
+        'points': points,
+        'spent': spent,
         'createdAt': createdAt.toIso8601String(),
         'completedAt': completedAt?.toIso8601String(),
         'isDefault': isDefault,
@@ -47,6 +59,8 @@ class TaskItem {
         id: j['id'] as String,
         title: j['title'] as String,
         pinned: j['pinned'] as bool? ?? false,
+        points: j['points'] as int? ?? 1,
+        spent: j['spent'] as int? ?? 0,
         createdAt: DateTime.parse(j['createdAt'] as String),
         completedAt: j['completedAt'] == null
             ? null

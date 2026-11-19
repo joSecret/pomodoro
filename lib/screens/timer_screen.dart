@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../state/models.dart';
 import '../theme.dart';
+import '../widgets/points.dart';
 import '../widgets/segmented.dart';
 
 class TimerScreen extends StatelessWidget {
@@ -93,14 +94,17 @@ Future<bool> askFocusTask(BuildContext context, AppState state) async {
   );
   if (result == null) return false;
   if (result.task != null) state.focusOn(result.task!);
-  if (result.newTitle != null) state.addTask(result.newTitle!, pinned: true);
+  if (result.newTitle != null) {
+    state.addTask(result.newTitle!, pinned: true, points: result.points);
+  }
   return true;
 }
 
 class _FocusChoice {
-  const _FocusChoice({this.task, this.newTitle});
+  const _FocusChoice({this.task, this.newTitle, this.points = 1});
   final TaskItem? task;
   final String? newTitle;
+  final int points;
 }
 
 class _FocusTaskDialog extends StatefulWidget {
@@ -113,6 +117,8 @@ class _FocusTaskDialog extends StatefulWidget {
 
 class _FocusTaskDialogState extends State<_FocusTaskDialog> {
   final _c = TextEditingController();
+  int _points = 1;
+  bool _tooBig = false;
 
   @override
   void dispose() {
@@ -123,7 +129,10 @@ class _FocusTaskDialogState extends State<_FocusTaskDialog> {
   void _start() {
     final text = _c.text.trim();
     Navigator.pop(
-        context, text.isEmpty ? const _FocusChoice() : _FocusChoice(newTitle: text));
+        context,
+        text.isEmpty
+            ? const _FocusChoice()
+            : _FocusChoice(newTitle: text, points: _points));
   }
 
   @override
@@ -138,15 +147,29 @@ class _FocusTaskDialogState extends State<_FocusTaskDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _c,
-              autofocus: true,
-              onSubmitted: (_) => _start(),
-              decoration: const InputDecoration(
-                hintText: 'Type a new task',
-                prefixIcon: Icon(Icons.edit_outlined, size: 20),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _c,
+                  autofocus: true,
+                  onSubmitted: (_) => _start(),
+                  decoration: const InputDecoration(
+                    hintText: 'Type a new task',
+                    prefixIcon: Icon(Icons.edit_outlined, size: 20),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              PointsPicker(
+                value: _points,
+                onChanged: (v) => setState(() {
+                  _points = v;
+                  _tooBig = false;
+                }),
+                onTooBig: () => setState(() => _tooBig = true),
+              ),
+            ]),
+            TooBigNote(visible: _tooBig),
             if (open.isNotEmpty) ...[
               const SizedBox(height: 18),
               const Text('Or pick one of your tasks',
@@ -166,6 +189,7 @@ class _FocusTaskDialogState extends State<_FocusTaskDialog> {
                         leading: const Icon(Icons.radio_button_unchecked,
                             size: 18, color: AppColors.textMuted),
                         title: Text(t.title, style: const TextStyle(fontSize: 15)),
+                        trailing: PointsBadge(task: t, size: 7),
                         onTap: () => Navigator.pop(context, _FocusChoice(task: t)),
                       ),
                   ],
@@ -342,6 +366,8 @@ class _PinnedTasks extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 10),
+                PointsBadge(task: t, size: 9),
               ],
             ),
           ),

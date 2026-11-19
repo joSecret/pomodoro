@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../state/models.dart';
 import '../theme.dart';
+import '../widgets/points.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, required this.state});
@@ -16,6 +17,17 @@ class _TasksScreenState extends State<TasksScreen> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   bool _showDone = false;
+  int _points = 1;
+  bool _tooBig = false;
+  int _tooBigToken = 0;
+
+  void _warnTooBig() {
+    final token = ++_tooBigToken;
+    setState(() => _tooBig = true);
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted && token == _tooBigToken) setState(() => _tooBig = false);
+    });
+  }
 
   AppState get s => widget.state;
 
@@ -27,8 +39,12 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void _submit() {
-    s.addTask(_input.text);
+    s.addTask(_input.text, points: _points);
     _input.clear();
+    setState(() {
+      _points = 1;
+      _tooBig = false;
+    });
     _focus.requestFocus();
   }
 
@@ -59,27 +75,10 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _edit(TaskItem t) async {
-    final c = TextEditingController(text: t.title);
-    final result = await showDialog<String>(
+    await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Edit task'),
-        content: TextField(
-          controller: c,
-          autofocus: true,
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, c.text),
-              child: const Text('Save')),
-        ],
-      ),
+      builder: (ctx) => _EditTaskDialog(task: t, state: s),
     );
-    if (result != null) s.rename(t, result);
   }
 
   @override
@@ -102,7 +101,20 @@ class _TasksScreenState extends State<TasksScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              _AddField(controller: _input, focus: _focus, onSubmit: _submit),
+              _AddField(
+                controller: _input,
+                focus: _focus,
+                onSubmit: _submit,
+                picker: PointsPicker(
+                  value: _points,
+                  onChanged: (v) => setState(() {
+                    _points = v;
+                    _tooBig = false;
+                  }),
+                  onTooBig: _warnTooBig,
+                ),
+              ),
+              TooBigNote(visible: _tooBig),
               const SizedBox(height: 14),
               if (open.isEmpty)
                 const Padding(
@@ -170,17 +182,22 @@ class _TasksScreenState extends State<TasksScreen> {
 }
 
 class _AddField extends StatelessWidget {
-  const _AddField(
-      {required this.controller, required this.focus, required this.onSubmit});
+  const _AddField({
+    required this.controller,
+    required this.focus,
+    required this.onSubmit,
+    required this.picker,
+  });
   final TextEditingController controller;
   final FocusNode focus;
   final VoidCallback onSubmit;
+  final Widget picker;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.only(left: 16, right: 11),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0x2EFFFFFF)),
@@ -205,6 +222,8 @@ class _AddField extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        picker,
       ]),
     );
   }
@@ -274,6 +293,10 @@ class _TaskRowState extends State<_TaskRow> {
                         fontSize: 18, fontWeight: FontWeight.w500)),
               ),
               const SizedBox(width: 12),
+              if (!t.isDefault) ...[
+                PointsBadge(task: t),
+                const SizedBox(width: 16),
+              ],
               Icon(
                 t.pinned ? Icons.push_pin : Icons.push_pin_outlined,
                 size: 22,
@@ -303,6 +326,73 @@ class _TaskRowState extends State<_TaskRow> {
                   color: Colors.white, fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+class _EditTaskDialog extends StatefulWidget {
+  const _EditTaskDialog({required this.task, required this.state});
+  final TaskItem task;
+  final AppState state;
+
+  @override
+  State<_EditTaskDialog> createState() => _EditTaskDialogState();
+}
+
+class _EditTaskDialogState extends State<_EditTaskDialog> {
+  late final _c = TextEditingController(text: widget.task.title);
+  late int _points = widget.task.points;
+  bool _tooBig = false;
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    widget.state.edit(widget.task, _c.text, _points);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: const Text('Edit task'),
+      content: SizedBox(
+        width: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(controller: _c, autofocus: true, onSubmitted: (_) => _save()),
+            const SizedBox(height: 18),
+            Row(children: [
+              const Text('Size',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(width: 12),
+              PointsPicker(
+                value: _points,
+                onChanged: (v) => setState(() {
+                  _points = v;
+                  _tooBig = false;
+                }),
+                onTooBig: () => setState(() => _tooBig = true),
+              ),
+              const SizedBox(width: 12),
+              Text('${widget.task.spent} done',
+                  style: const TextStyle(color: AppColors.textMuted)),
+            ]),
+            TooBigNote(visible: _tooBig),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
     );
   }
 }

@@ -125,6 +125,10 @@ class AppState extends ChangeNotifier {
     if (mode == TimerMode.work) {
       if (countSession) {
         final focus = pinnedTasks;
+        if (focus.isNotEmpty) {
+          focus.first.spent++;
+          _saveTasks(notify: false);
+        }
         sessions.add(FocusSession(
             endedAt: DateTime.now(),
             minutes: minutesFor[TimerMode.work]!,
@@ -154,7 +158,7 @@ class AppState extends ChangeNotifier {
   List<TaskItem> get pinnedTasks =>
       tasks.where((t) => t.pinned && !t.isDone).toList();
 
-  TaskItem? addTask(String title, {bool pinned = false}) {
+  TaskItem? addTask(String title, {bool pinned = false, int points = 1}) {
     final t = title.trim();
     if (t.isEmpty) return null;
     final item = TaskItem(
@@ -162,6 +166,7 @@ class AppState extends ChangeNotifier {
       title: t,
       createdAt: DateTime.now(),
       pinned: pinned,
+      points: points.clamp(1, TaskItem.maxPoints),
     );
     tasks.insert(0, item);
     _saveTasks();
@@ -190,9 +195,9 @@ class AppState extends ChangeNotifier {
     _saveTasks();
   }
 
-  void rename(TaskItem t, String title) {
-    if (title.trim().isEmpty) return;
-    t.title = title.trim();
+  void edit(TaskItem t, String title, int points) {
+    if (title.trim().isNotEmpty) t.title = title.trim();
+    t.points = points.clamp(1, TaskItem.maxPoints);
     _saveTasks();
   }
 
@@ -286,6 +291,23 @@ class AppState extends ChangeNotifier {
           completedAt: day.add(Duration(hours: 10 + k)),
         ));
       }
+    }
+    var n = 0;
+    for (final (title, pts, spent) in [
+      ('Design the onboarding screens', 4, 1),
+      ('Write the Q4 report', 3, 3),
+      ('Fix login bug on Windows', 2, 0),
+      ('Prepare slides for Friday', 5, 6),
+    ]) {
+      tasks.insert(
+          n++,
+          TaskItem(
+            id: 'demo-open-$n',
+            title: title,
+            createdAt: today,
+            points: pts,
+            spent: spent,
+          ));
     }
     completedInCycle = 2;
     notifyListeners();

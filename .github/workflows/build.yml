@@ -48,6 +48,12 @@ jobs:
           PID=$!
           sleep 20
           screencapture -x launch.png || true
+          # Small copy printed to the log, so the result is visible without
+          # downloading artifacts.
+          if [ -f launch.png ]; then
+            sips -Z 700 -s format jpeg launch.png --out launch-small.jpg >/dev/null
+            echo "LAUNCH_SCREENSHOT_BASE64_BEGIN"; base64 -i launch-small.jpg; echo "LAUNCH_SCREENSHOT_BASE64_END"
+          fi
           if kill -0 $PID 2>/dev/null; then
             echo "App is running"; kill $PID
           else
